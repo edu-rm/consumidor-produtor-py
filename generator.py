@@ -1,5 +1,6 @@
 import boto3
 
+
 tamanho = 100
 sqs = boto3.client('sqs')
 
@@ -8,7 +9,7 @@ for i in range(100):
       QueueUrl=QUEUE_URL,
       DelaySeconds=10,
       MessageBody=(
-          f'{i} - Rafael'
+          f'{i} - Cojura'
       )
   )
 

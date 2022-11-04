@@ -6,12 +6,15 @@ import random
 import threading
 import multiprocessing
 import logging
-from threading import Thread
+from threading import Thread, Lock
 from queue import Queue
 import time
 import boto3
 from pysqs_extended_client.SQSClientExtended import SQSClientExtended
-boto3.set_stream_logger('boto3.resources', logging.ERROR)
+import logging
+logging.getLogger('boto3').setLevel(logging.CRITICAL)
+logging.getLogger('botocore').setLevel(logging.CRITICAL)
+
 
 logging.basicConfig(format='%(levelname)s - %(asctime)s.%(msecs)03d: %(message)s',datefmt='%H:%M:%S', level=logging.DEBUG)
 
@@ -42,12 +45,12 @@ def create_work(queue,finished,max):
             WaitTimeSeconds=0
         )
         count = count + 1
-        print('\n\n\n\n')
-        print(response)
+        # print('\n\n\n\n')
+        # print(response)
         if response.get('Messages'):
             queue.put(response.get('Messages')[0].get('Body'))
 
-        time.sleep(0.3)
+        time.sleep(0.6)
     # for x in range(max):
     #     # v = random.randint(1,100)
     #     v = x
@@ -57,16 +60,18 @@ def create_work(queue,finished,max):
     # display('finished')
 
 #Consumer 
-def perform_work(work,finished):
+def perform_work(work,finished,queueLocker):
     counter = 0
     while True:
         if not work.empty():
+            queueLocker.acquire(True)
             v = work.get()
+            queueLocker.release()
             display(f'Consuming {counter}: {v}')
             counter += 1
-            time.sleep(random.uniform(1,3))
+            time.sleep(5)
         else:
-            time.sleep(3)
+            time.sleep(5)
 
         display('finished')
 
@@ -77,14 +82,15 @@ def main():
     max = 5
     work = Queue()
     finished = Queue()
+    queueLocker = Lock()
 
-    producer = Thread(target=create_work,args=[work,finished,max],daemon=True)
-    consumer = Thread(target=perform_work,args=[work,finished],daemon=True)
-    consumer2 = Thread(target=perform_work,args=[work,finished],daemon=True)
-    consumer3 = Thread(target=perform_work,args=[work,finished],daemon=True)
-    consumer4 = Thread(target=perform_work,args=[work,finished],daemon=True)
-    consumer5 = Thread(target=perform_work,args=[work,finished],daemon=True)
-    consumer6 = Thread(target=perform_work,args=[work,finished],daemon=True)
+    producer = Thread(target=create_work,args=[work,finished,max])
+    consumer = Thread(target=perform_work,args=[work,finished,queueLocker],daemon=True)
+    consumer2 = Thread(target=perform_work,args=[work,finished,queueLocker],daemon=True)
+    consumer3 = Thread(target=perform_work,args=[work,finished,queueLocker],daemon=True)
+    consumer4 = Thread(target=perform_work,args=[work,finished,queueLocker],daemon=True)
+    consumer5 = Thread(target=perform_work,args=[work,finished,queueLocker],daemon=True)
+    consumer6 = Thread(target=perform_work,args=[work,finished,queueLocker],daemon=True)
 
     producer.start()
     consumer.start()
